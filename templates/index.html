@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Scanner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=13">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <h2>Web Scanner</h2>
+                    <button id="sidebarClose" class="btn-icon sidebar-mobile-only">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="server-ip">Server IP: <span id="serverIp">Loading...</span></div>
+            </div>
+
+            <div class="config-panel">
+                <div class="form-group">
+                    <label>Target URL</label>
+                    <input type="url" id="targetUrl" placeholder="https://example.com" value="https://example.com">
+                </div>
+
+
+
+                <div class="form-group">
+                    <label>Threads (Speed)</label>
+                    <input type="range" id="threads" min="1" max="100" value="10"
+                        oninput="threadOutput.value = this.value">
+                    <output id="threadOutput" style="color:var(--text-secondary); font-size:0.8rem;">10</output>
+                </div>
+
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="verifySsl" checked>
+                    <label for="verifySsl">Verify SSL</label>
+                </div>
+
+                <div class="actions">
+                    <button id="btnStart" class="btn btn-primary" onclick="startScan()">Start Scan</button>
+                    <button id="btnStop" class="btn btn-danger" onclick="stopScan()" disabled>Stop</button>
+                </div>
+
+                <div class="chart-container" style="margin-top: 20px;">
+                    <canvas id="vulnChart"></canvas>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <header class="top-bar">
+                <div class="header-left" style="display: flex; align-items: center; gap: 16px;">
+                    <button id="sidebarToggle" class="btn-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <div class="status-indicator">
+                        <span id="statusBadge" class="badge">READY</span>
+                        <span id="loadingSpinner" class="spinner" style="display:none;"></span>
+                    </div>
+                </div>
+
+                <!-- Progress Line -->
+                <div class="progress-main">
+                    <div class="progress-container">
+                        <div id="progressBar" class="progress-bar"></div>
+                    </div>
+                    <div class="stats-mini">
+                        <span id="countTotal">0</span> Findings
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <button class="btn btn-sm" onclick="exportCSV()">Download CSV</button>
+                    <button class="btn btn-sm" onclick="exportHTML()">Download HTML</button>
+                </div>
+            </header>
+
+            <div class="filters-bar">
+                <button class="filter-btn active" onclick="filterTable('all')">All</button>
+                <button class="filter-btn" onclick="filterTable('high')">High</button>
+                <button class="filter-btn" onclick="filterTable('medium')">Medium</button>
+                <button class="filter-btn" onclick="filterTable('low')">Low</button>
+                <button class="filter-btn" onclick="filterTable('info')">Info</button>
+            </div>
+
+            <div class="results-container">
+                <table class="results-table" id="scanTable">
+                    <thead>
+                        <tr>
+                            <th width="100">Time</th>
+                            <th width="90">Sev</th>
+                            <th width="160">Type</th>
+                            <th>Detail</th>
+                            <th width="80">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- AI Modal -->
+    <div id="aiModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3>Vulnerability Analysis</h3>
+            <div id="aiContent" class="markdown-body">Loading analysis...</div>
+        </div>
+    </div>
+
+    <!-- Scan Detail Modal -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modalBody" class="markdown-body"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        // Sidebar Toggle Logic
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarClose = document.getElementById('sidebarClose');
+        const appContainer = document.querySelector('.app-container');
+
+        // Auto-collapse on mobile load
+        if (window.innerWidth <= 768) {
+            appContainer.classList.add('sidebar-collapsed');
+        }
+
+        sidebarToggle.addEventListener('click', () => {
+            appContainer.classList.toggle('sidebar-collapsed');
+        });
+
+        sidebarClose.addEventListener('click', () => {
+            appContainer.classList.add('sidebar-collapsed');
+        });
+
+        // Handle resize events
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768) {
+                if (!appContainer.classList.contains('sidebar-collapsed')) {
+                    appContainer.classList.add('sidebar-collapsed');
+                }
+            } else {
+                appContainer.classList.remove('sidebar-collapsed');
+            }
+        });
+    </script>
+    <script>
+        let eventSource = null;
+        let scanData = [];
+        let chartInstance = null;
+
+        // Initialize Chart
+        const ctx = document.getElementById('vulnChart').getContext('2d');
+
+        // Vibrant Colors matching new badges
+        const colorHigh = '#ef4444';
+        const colorMedium = '#f59e0b';
+        const colorLow = '#10b981';
+        const colorInfo = '#3b82f6';
+
+        chartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['High', 'Medium', 'Low', 'Info'],
+                datasets: [{
+                    data: [0, 0, 0, 0],
+                    backgroundColor: [colorHigh, colorMedium, colorLow, colorInfo],
+                    borderWidth: 0,
+                    hoverOffset: 15, // Pop out effect on hover
+                    borderRadius: 5,  // Rounded ends
+                    spacing: 2        // Spacing between segments
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '75%', // Thinner, more modern ring
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#e5e5e5',
+                            font: { size: 11, family: 'Inter' },
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(30, 30, 30, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: true
+                    }
+                },
+                animation: {
+                    animateScale: true,
+                    animateRotate: true
+                }
+            }
+        });
+
+        function updateChart() {
+            const counts = { High: 0, Medium: 0, Low: 0, Info: 0 };
+            scanData.forEach(d => {
+                let s = d.severity;
+                if (counts[s] !== undefined) counts[s]++;
+            });
+            chartInstance.data.datasets[0].data = [counts.High, counts.Medium, counts.Low, counts.Info];
+            chartInstance.update();
+            document.getElementById('countTotal').innerText = scanData.length;
+        }
+
+        function addRow(data) {
+            scanData.push(data);
+            updateChart();
+            renderTable(document.querySelector('.filter-btn.active').innerText.toLowerCase());
+        }
+
+        function renderTable(filter) {
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+
+            scanData.forEach(data => {
+                if (filter !== 'all' && data.severity.toLowerCase() !== filter) return;
+
+                const row = document.createElement('tr');
+                const sev = data.severity.toLowerCase();
+                row.innerHTML = `
+                    <td>${data.time}</td>
+                    <td><span class="badge badge-${sev}">${data.severity}</span></td>
+                    <td>${data.type}</td>
+                    <td class="detail-cell">${data.detail}</td>
+                    <td><button class="btn-ai" onclick='analyzeItem("${data.type}", "${data.detail.replace(/"/g, '&quot;')}")'>Analyze</button></td>
+                `;
+                tbody.insertBefore(row, tbody.firstChild);
+            });
+        }
+
+        function filterTable(sev) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            renderTable(sev);
+        }
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,Time,Severity,Type,Detail\n";
+            scanData.forEach(row => {
+                let rowStr = `${row.time},${row.severity},"${row.type}","${row.detail.replace(/"/g, '""')}"`;
+                csvContent += rowStr + "\n";
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "scan_results.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function exportHTML() {
+            const now = new Date().toLocaleString();
+            let htmlContent = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <title>Scan Report - ${now}</title>
+                <style>
+                    body { font-family: sans-serif; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+                    h1 { color: #007acc; border-bottom: 1px solid #454545; padding-bottom: 10px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #454545; padding: 8px; text-align: left; }
+                    th { background: #252526; color: #858585; }
+                    tr:nth-child(even) { background: #2a2d2e; }
+                    .high { color: #f48771; font-weight: bold; }
+                    .medium { color: #cca700; font-weight: bold; }
+                    .low { color: #89d185; font-weight: bold; }
+                    .info { color: #007acc; }
+                </style>
+            </head>
+            <body>
+                <h1>Web Scanner Report</h1>
+                <p>Generated: ${now}</p>
+                <p>Target: ${document.getElementById('targetUrl').value}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Severity</th>
+                            <th>Type</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            scanData.forEach(row => {
+                let colorClass = row.severity.toLowerCase();
+                htmlContent += `
+                    <tr>
+                        <td>${row.time}</td>
+                        <td class="${colorClass}">${row.severity}</td>
+                        <td>${row.type}</td>
+                        <td>${row.detail}</td>
+                    </tr>
+                `;
+            });
+
+            htmlContent += `
+                    </tbody>
+                </table>
+            </body>
+            </html>
+            `;
+
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "scan_report.html";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function analyzeItem(type, detail) {
+            const modal = document.getElementById('aiModal');
+            const content = document.getElementById('aiContent');
+            modal.style.display = "block";
+            content.innerHTML = "<p>Thinking...</p>";
+
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ finding: type, detail: detail })
+                });
+                const data = await res.json();
+                if (data.error) {
+                    content.innerText = "Error: " + data.error;
+                } else {
+                    content.innerHTML = marked.parse(data.analysis);
+                }
+            } catch (e) {
+                content.innerText = "Failed to reach AI.";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('aiModal').style.display = "none";
+        }
+
+        function startStream() {
+            if (eventSource) eventSource.close();
+            eventSource = new EventSource('/api/stream');
+
+            eventSource.onmessage = function (e) {
+                const msg = JSON.parse(e.data);
+
+                if (msg.type === 'results') {
+                    msg.data.forEach(item => addRow(item));
+                } else if (msg.type === 'status') {
+                    document.getElementById('serverIp').innerText = msg.ip;
+                    document.getElementById('statusBadge').innerText = msg.status.toUpperCase();
+
+                    if (msg.status === 'Scanning') {
+                        document.getElementById('loadingSpinner').style.display = "inline-block";
+                        document.getElementById('progressBar').style.width = "50%"; // Infinite Indeterminate style
+                    } else {
+                        document.getElementById('loadingSpinner').style.display = "none";
+                        document.getElementById('progressBar').style.width = "100%";
+                        document.getElementById('btnStart').disabled = false;
+                        document.getElementById('btnStop').disabled = true;
+                        if (msg.status !== 'Scanning') eventSource.close();
+                    }
+                }
+            };
+        }
+
+        async function startScan() {
+            const target = document.getElementById('targetUrl').value;
+            const threads = document.getElementById('threads').value;
+
+            scanData = [];
+            updateChart();
+            renderTable('all');
+
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnStop').disabled = false;
+            document.getElementById('progressBar').style.width = "0%";
+
+            try {
+                await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target, threads
+                    })
+                });
+                startStream();
+            } catch (e) {
+                alert("Start failed");
+                document.getElementById('btnStart').disabled = false;
+            }
+        }
+
+        async function stopScan() {
+            await fetch('/api/stop', { method: 'POST' });
+        }
+
+        // Close modal on outside click
+        window.onclick = function (event) {
+            if (event.target == document.getElementById('aiModal')) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+
+</html>
