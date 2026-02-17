@@ -13,6 +13,8 @@
 
 <body>
     <div class="app-container">
+        <!-- Sidebar Backdrop -->
+        <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
@@ -89,8 +91,16 @@
                 </div>
 
                 <div class="header-actions">
-                    <button class="btn btn-sm" onclick="exportCSV()">Download CSV</button>
-                    <button class="btn btn-sm" onclick="exportHTML()">Download HTML</button>
+                    <button class="btn btn-sm hide-mobile" onclick="exportCSV()">CSV</button>
+                    <button class="btn btn-sm hide-mobile" onclick="exportHTML()">HTML</button>
+                    <button class="btn btn-sm mobile-only" onclick="exportCSV()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </button>
                 </div>
             </header>
 
@@ -141,29 +151,40 @@
         // Sidebar Toggle Logic
         const sidebarToggle = document.getElementById('sidebarToggle');
         const sidebarClose = document.getElementById('sidebarClose');
+        const sidebarBackdrop = document.getElementById('sidebarBackdrop');
         const appContainer = document.querySelector('.app-container');
+
+        function toggleSidebar() {
+            appContainer.classList.toggle('sidebar-collapsed');
+            if (window.innerWidth <= 768) {
+                const isCollapsed = appContainer.classList.contains('sidebar-collapsed');
+                sidebarBackdrop.classList.toggle('active', !isCollapsed);
+            }
+        }
+
+        function closeSidebar() {
+            appContainer.classList.add('sidebar-collapsed');
+            sidebarBackdrop.classList.remove('active');
+        }
 
         // Auto-collapse on mobile load
         if (window.innerWidth <= 768) {
             appContainer.classList.add('sidebar-collapsed');
         }
 
-        sidebarToggle.addEventListener('click', () => {
-            appContainer.classList.toggle('sidebar-collapsed');
-        });
-
-        sidebarClose.addEventListener('click', () => {
-            appContainer.classList.add('sidebar-collapsed');
-        });
+        sidebarToggle.addEventListener('click', toggleSidebar);
+        sidebarClose.addEventListener('click', closeSidebar);
+        sidebarBackdrop.addEventListener('click', closeSidebar);
 
         // Handle resize events
         window.addEventListener('resize', () => {
             if (window.innerWidth <= 768) {
                 if (!appContainer.classList.contains('sidebar-collapsed')) {
-                    appContainer.classList.add('sidebar-collapsed');
+                    // appContainer.classList.add('sidebar-collapsed');
                 }
             } else {
                 appContainer.classList.remove('sidebar-collapsed');
+                sidebarBackdrop.classList.remove('active');
             }
         });
     </script>
@@ -250,11 +271,11 @@
                 const row = document.createElement('tr');
                 const sev = data.severity.toLowerCase();
                 row.innerHTML = `
-                    <td>${data.time}</td>
-                    <td><span class="badge badge-${sev}">${data.severity}</span></td>
-                    <td>${data.type}</td>
-                    <td class="detail-cell">${data.detail}</td>
-                    <td><button class="btn-ai" onclick='analyzeItem("${data.type}", "${data.detail.replace(/"/g, '&quot;')}")'>Analyze</button></td>
+                    <td data-label="Time">${data.time}</td>
+                    <td data-label="Severity"><span class="badge badge-${sev}">${data.severity}</span></td>
+                    <td data-label="Type">${data.type}</td>
+                    <td data-label="Detail" class="detail-cell">${data.detail}</td>
+                    <td data-label="Action"><button class="btn-ai" onclick='analyzeItem("${data.type}", "${data.detail.replace(/"/g, '&quot;')}")'>Analyze</button></td>
                 `;
                 tbody.insertBefore(row, tbody.firstChild);
             });
