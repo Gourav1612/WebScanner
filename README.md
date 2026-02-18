@@ -40,7 +40,7 @@ A professional, high-performance web security scanner integrated with Gemini AI 
 ### 2. Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/web-scanner.git
+git clone https://github.com/Gourav1612/WebScanner
 cd web-scanner
 
 # Install dependencies
