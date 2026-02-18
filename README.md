@@ -1,8 +1,8 @@
-# AI-Powered Web Vulnerability Scanner
+# Web Vulnerability Scanner
 
 A professional, high-performance web security scanner integrated with Gemini AI for deep vulnerability analysis. This tool automates the process of finding security flaws and provides AI-driven remediation steps, business impact analysis, and verification guides.
 
-## 🚀 Key Features
+## Key Features
 
 ### 1. Smart Vulnerability Scanning
 - **Automated Discovery**: Scans for common web vulnerabilities including XSS, SQL Injection, Security Headers, and Sensitive File Exposure.
@@ -25,13 +25,13 @@ A professional, high-performance web security scanner integrated with Gemini AI 
 - **Professional Mobile UI**: Optimized "Bottom-Sheet" interface for mobile devices with focused reading mode.
 - **Interactive Charts**: Visual breakdown of findings by severity using Chart.js.
 
-## 🛠️ Tech Stack
+## Tech Stack
 - **Backend**: Python (Flask)
 - **AI**: Google Generative AI (Gemini)
 - **Frontend**: HTML5, Vanilla CSS3, JavaScript (ES6+)
 - **Analysis**: Marked.js (Markdown), Chart.js (Visualization)
 
-## 📋 Setup Instructions
+## Setup Instructions
 
 ### 1. Prerequisites
 - Python 3.8+
@@ -62,8 +62,5 @@ python application.py
 ```
 Open your browser and navigate to `http://127.0.0.1:5000`.
 
-## �️ Security Disclaimer
+## Security Disclaimer
 This tool is for educational and authorized security testing purposes only. Usage against targets without prior written consent is illegal. The developers assume no liability for misuse or damage caused by this program.
-
----
-*Built with ❤️ for the Security Community.*
