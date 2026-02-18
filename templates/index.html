@@ -34,7 +34,7 @@
             <div class="config-panel">
                 <div class="form-group">
                     <label>Target URL</label>
-                    <input type="url" id="targetUrl" placeholder="https://example.com" value="https://example.com">
+                    <input type="url" id="targetUrl" placeholder="Enter target URL (e.g. https://example.com)">
                 </div>
 
 
@@ -131,10 +131,13 @@
 
     <!-- AI Modal -->
     <div id="aiModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h3>Vulnerability Analysis</h3>
+        <div class="modal-content" id="movableModal">
+            <div class="modal-header" id="modalHandle">
+                <h3>Vulnerability Analysis</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
             <div id="aiContent" class="markdown-body">Loading analysis...</div>
+            <div id="modalResizeHandle" class="modal-resize-handle"></div>
         </div>
     </div>
 
@@ -382,7 +385,15 @@
                 });
                 const data = await res.json();
                 if (data.error) {
-                    content.innerText = "Error: " + data.error;
+                    let errHtml = `<p style="color: #ef4444; font-weight: bold;">Error: ${data.error}</p>`;
+                    if (data.details && data.details.length > 0) {
+                        errHtml += '<ul style="font-size: 0.85rem; color: #a3a3a3; margin-top: 10px;">';
+                        data.details.forEach(detail => {
+                            errHtml += `<li>${detail}</li>`;
+                        });
+                        errHtml += '</ul>';
+                    }
+                    content.innerHTML = errHtml;
                 } else {
                     content.innerHTML = marked.parse(data.analysis);
                 }
@@ -391,8 +402,111 @@
             }
         }
 
+        // Movable Modal Logic
+        const modalContent = document.getElementById('movableModal');
+        const modalHandle = document.getElementById('modalHandle');
+        let isDragging = false;
+        let offset = { x: 0, y: 0 };
+
+        modalHandle.addEventListener('mousedown', (e) => {
+            if (window.innerWidth <= 768) return;
+            isDragging = true;
+
+            // Get current dimensions and position
+            const rect = modalContent.getBoundingClientRect();
+
+            // Calculate offset within the modal
+            offset.x = e.clientX - rect.left;
+            offset.y = e.clientY - rect.top;
+
+            // Disable transition and center transform to prevent "jumping"
+            modalContent.style.transition = 'none';
+            modalContent.style.transform = 'none';
+            modalContent.style.margin = '0';
+
+            // Set initial position in pixels instead of percentages
+            modalContent.style.left = rect.left + 'px';
+            modalContent.style.top = rect.top + 'px';
+
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDrag);
+            modalHandle.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        function drag(e) {
+            if (!isDragging) return;
+
+            let x = e.clientX - offset.x;
+            let y = e.clientY - offset.y;
+
+            const margin = 10;
+            x = Math.max(margin, Math.min(x, window.innerWidth - modalContent.offsetWidth - margin));
+            y = Math.max(margin, Math.min(y, window.innerHeight - modalContent.offsetHeight - margin));
+
+            modalContent.style.left = x + 'px';
+            modalContent.style.top = y + 'px';
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', stopDrag);
+            modalHandle.style.cursor = 'move';
+        }
+
+        // Resizable Modal Logic
+        const resizeHandle = document.getElementById('modalResizeHandle');
+        let isResizing = false;
+
+        resizeHandle.addEventListener('mousedown', (e) => {
+            if (window.innerWidth <= 768) return;
+            isResizing = true;
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+            e.stopPropagation(); // Prevent drag from triggering
+        });
+
+        function handleResize(e) {
+            if (!isResizing) return;
+
+            const rect = modalContent.getBoundingClientRect();
+            let newWidth = e.clientX - rect.left;
+            let newHeight = e.clientY - rect.top;
+
+            // Constrain sizes
+            newWidth = Math.max(300, Math.min(newWidth, window.innerWidth - rect.left - 20));
+            newHeight = Math.max(200, Math.min(newHeight, window.innerHeight - rect.top - 20));
+
+            modalContent.style.width = newWidth + 'px';
+            modalContent.style.maxWidth = 'none'; // Allow expansion beyond default
+
+            // Note: max-height is handled by markdown-body in CSS,
+            // but we can adjust modal height if we want it to be fixed.
+            // For now, let's keep it flexible or set modal height:
+            modalContent.style.height = newHeight + 'px';
+        }
+
+        function stopResize() {
+            isResizing = false;
+            document.removeEventListener('mousemove', handleResize);
+            document.removeEventListener('mouseup', stopResize);
+        }
+
         function closeModal() {
             document.getElementById('aiModal').style.display = "none";
+            // Clear all inline styles to let CSS defaults (desktop/mobile) take over
+            modalContent.style.top = '';
+            modalContent.style.left = '';
+            modalContent.style.right = '';
+            modalContent.style.bottom = '';
+            modalContent.style.width = '';
+            modalContent.style.height = '';
+            modalContent.style.maxWidth = '';
+            modalContent.style.transform = '';
+            modalContent.style.margin = '';
+            modalContent.style.transition = '';
         }
 
         function startStream() {
@@ -453,12 +567,6 @@
             await fetch('/api/stop', { method: 'POST' });
         }
 
-        // Close modal on outside click
-        window.onclick = function (event) {
-            if (event.target == document.getElementById('aiModal')) {
-                closeModal();
-            }
-        }
     </script>
 </body>
 

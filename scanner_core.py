@@ -38,7 +38,6 @@ except Exception:
 # --------------- Configuration & Defaults ---------------
 
 CHECKS_CSV_DEFAULT = "checks.csv"
-PLACEHOLDER_URL = "https://example.com"
 
 REQUEST_TIMEOUT = 10
 DEFAULT_RATE_DELAY = 0.12
