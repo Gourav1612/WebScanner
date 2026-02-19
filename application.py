@@ -155,7 +155,7 @@ def api_analyze():
         return jsonify({"error": "No API keys found. Please check your .env file."}), 500
 
     # Professional prompt with more sections
-    fast_prompt = f"Analyze vulnerability: {finding} ({detail}). Respond in markdown with headers: 1. Severity & Risk Rating, 2. Exploit Summary, 3. Business Impact, 4. Remediation Steps, 5. Verification Steps. Concise but professional, max 250 words."
+    fast_prompt = f"Analyze vulnerability: {finding} ({detail}). Respond in markdown with headers: 1. Severity & Risk Rating, 2. Exploit Summary, 3. Business Impact, 4. Remediation Steps. Concise but professional, max 250 words."
     
     failure_reasons = []
     
